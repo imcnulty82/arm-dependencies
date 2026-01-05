@@ -1,17 +1,17 @@
 ###########################################################
 # base image, used for build stages and final images
-FROM phusion/baseimage:jammy-1.0.4 AS base
+FROM ubuntu:plucky AS base
 RUN mkdir /opt/arm
 WORKDIR /opt/arm
 
 # start by updating and upgrading the OS
 RUN \
-    apt clean && \
-    apt update && \
-    apt upgrade -y -o Dpkg::Options::="--force-confold"
+    apt-get clean && \
+    apt-get update && \
+    apt-get upgrade -y -o Dpkg::Options::="--force-confold"
 # create an arm group(gid 1000) and an arm user(uid 1000), with password logon disabled
-RUN groupadd -g 1000 arm \
-    && useradd -rm -d /home/arm -s /bin/bash -g arm -G video,cdrom -u 1000 arm
+RUN groupadd -g 1002 arm \
+    && useradd -rm -d /home/arm -s /bin/bash -g arm -G video,cdrom -u 1002 arm
 
 # enable support for Arch Linux and derivatives, who use a different user group for optical drive permissions
 RUN groupadd -g 990 optical \
@@ -20,8 +20,8 @@ RUN groupadd -g 990 optical \
 # set the default environment variables
 # UID and GID are not settable as of https://github.com/phusion/baseimage-docker/pull/86, as doing so would
 # break multi-account containers
-ENV ARM_UID=1000
-ENV ARM_GID=1000
+ENV ARM_UID=1002
+ENV ARM_GID=1002
 
 # setup gnupg/wget for add-ppa.sh
 RUN install_clean \
@@ -75,10 +75,17 @@ RUN \
     install_clean libdvd-pkg && \
     dpkg-reconfigure libdvd-pkg
 
+# install Intel Arc GPU Packages
+RUN apt-get install -y software-properties-common && \
+    add-apt-repository -y ppa:kobuk-team/intel-graphics && \
+    apt-get install -y libze-intel-gpu1 libze1 intel-metrics-discovery intel-opencl-icd clinfo intel-gsc && \
+    apt-get install -y intel-media-va-driver-non-free libmfx-gen1 libvpl2 libvpl-tools libva-glx2 va-driver-all vainfo && \
+    apt-get install -y libze-dev intel-ocloc libze-intel-gpu-raytracing
+
 # install python reqs
 COPY requirements.txt ./requirements.txt
-RUN pip3 install --upgrade pip wheel setuptools psutil pyudev
-RUN pip3 install --ignore-installed --prefer-binary -r ./requirements.txt
+RUN pip3 install --upgrade wheel setuptools psutil pyudev --break-system-packages
+RUN pip3 install --ignore-installed --prefer-binary --break-system-packages -r ./requirements.txt
 
 ###########################################################
 # install makemkv and handbrake
@@ -88,6 +95,8 @@ RUN chmod +x /install_mkv_hb_deps.sh && sleep 1 && \
     /install_mkv_hb_deps.sh
 
 COPY ./scripts/install_handbrake.sh /install_handbrake.sh
+COPY ./scripts/handbrake.gpg /handbrake.gpg
+COPY ./scripts/defs /defs
 RUN chmod +x /install_handbrake.sh && sleep 1 && \
     /install_handbrake.sh
 
@@ -97,7 +106,7 @@ RUN chmod +x /install_makemkv.sh && sleep 1 && \
     /install_makemkv.sh
 
 # clean up apt
-RUN apt clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # Container healthcheck
 COPY scripts/healthcheck.sh /healthcheck.sh
