@@ -37,7 +37,7 @@ wget -O handbrake.tar.bz2 "https://github.com/HandBrake/HandBrake/releases/downl
 
 # https://handbrake.fr/openpgp.php or https://github.com/HandBrake/HandBrake/wiki/OpenPGP
 GNUPGHOME="$(mktemp -d)" && export GNUPGHOME
-gpg --batch --keyserver keyserver.ubuntu.com --recv-keys '1629 C061 B3DD E7EB 4AE3  4B81 021D B8B4 4E4A 8645'; \
+gpg --import /handbrake.gpg; \
 gpg --batch --verify handbrake.tar.bz2.sig handbrake.tar.bz2; \
 rm -rf "$GNUPGHOME" handbrake.tar.bz2.sig
 mkdir -p /tmp/handbrake
@@ -47,6 +47,15 @@ tar --extract \
 	--strip-components 1 \
 	"HandBrake-$HANDBRAKE_VERSION"
 rm handbrake.tar.bz2
+
+#copy corrected condtrib files
+mv /defs/zlib.defs /tmp/handbrake/contrib/zlib/module.defs
+mv /defs/libvorbis.defs /tmp/handbrake/contrib/libvorbis/module.defs
+mv /defs/libspeex.defs /tmp/handbrake/contrib/libspeex/module.defs
+mv /defs/libgnurx.defs /tmp/handbrake/contrib/libgnurx/module.defs
+mv /defs/lame.defs /tmp/handbrake/contrib/lame/module.defs
+mv /defs/fdk-aac.defs /tmp/handbrake/contrib/fdk-aac/module.defs
+mv /defs/bzip2.defs /tmp/handbrake/contrib/bzip2/module.defs
 
 # libdovi (Dolby Vision) support
 curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly -y
